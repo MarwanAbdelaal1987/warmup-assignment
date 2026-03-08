@@ -1,12 +1,7 @@
 const fs = require("fs");
 
-// ────────────────────────────────────────────────
-//          HELPER FUNCTIONS (add these first)
-// ────────────────────────────────────────────────
-
 // 1. Convert "hh:mm:ss am/pm" → total seconds since midnight
 function timeToSeconds(timeStr) {
-    // Example inputs: "6:01:20 am", "12:30:00 pm", "1:05:09 pm", "12:00:00 am"
     const [timePart, period] = timeStr.toLowerCase().split(" ");
     let [hours, minutes, seconds] = timePart.split(":").map(Number);
 
@@ -41,7 +36,6 @@ function secondsToTotalHours(seconds) {
 
 // 4. Parse "h:mm:ss" or "hh:mm:ss" or "hhh:mm:ss" back to seconds
 function durationToSeconds(durationStr) {
-    // Handles "9:30:00", "10:12:20", "146:20:00", etc.
     const parts = durationStr.split(":").map(Number);
     if (parts.length !== 3) return 0; // invalid → return 0 or throw later if needed
 
@@ -69,10 +63,10 @@ function isEidPeriod(dateStr) {
 
 // 7. Get daily quota in seconds (used in metQuota and required hours)
 function getDailyQuotaSeconds(dateStr) {
-    return isEidPeriod(dateStr) ? 6 * 3600 : (8 * 3600 + 24 * 60); // 30240 seconds
+    return isEidPeriod(dateStr) ? 6 * 3600 : (8 * 3600 + 24 * 60); /
 }
 
-// Optional: day name → number map (used later in function 9)
+// Day name → number map (used later in function 9)
 const dayNameToNumber = {
     Sunday: 0,
     Monday: 1,
