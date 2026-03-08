@@ -166,7 +166,72 @@ function metQuota(date, activeTime) {
 // Returns: object with 10 properties or empty object {}
 // ============================================================
 function addShiftRecord(textFile, shiftObj) {
-    // TODO: Implement this function
+    const { driverID, driverName, date, startTime, endTime } = shiftObj;
+
+    // Read file content
+    let content = fs.readFileSync(textFile, 'utf8').trim();
+    let lines = content.split('\n').filter(line => line.trim() !== '');
+
+    // Parse header and data rows
+    const header = lines[0].split(',');
+    const dataRows = lines.slice(1).map(line => line.split(','));
+
+    // Check for duplicate (same driverID and date)
+    const duplicate = dataRows.some(row => row[0] === driverID && row[2] === date);
+    if (duplicate) {
+        return {};
+    }
+
+    // Calculate derived fields using previous functions
+    const shiftDuration = getShiftDuration(startTime, endTime);
+    const idleTime = getIdleTime(startTime, endTime);
+    const activeTime = getActiveTime(shiftDuration, idleTime);
+    const metQuotaBool = metQuota(date, activeTime);
+    const hasBonus = false;
+
+    // Create new row as array (match file format: strings, booleans as 'true'/'false')
+    const newRow = [
+        driverID,
+        driverName,
+        date,
+        startTime,
+        endTime,
+        shiftDuration,
+        idleTime,
+        activeTime,
+        metQuotaBool ? 'true' : 'false',
+        hasBonus ? 'true' : 'false'
+    ];
+
+    // Find insert position: after last row with same driverID (assume file sorted by driverID)
+    let insertIndex = dataRows.length; // default: append
+    for (let i = dataRows.length - 1; i >= 0; i--) {
+        if (dataRows[i][0] === driverID) {
+            insertIndex = i + 1;
+            break;
+        }
+    }
+
+    // Insert into dataRows
+    dataRows.splice(insertIndex, 0, newRow);
+
+    // Rebuild file content (header + rows)
+    const newContent = [header.join(','), ...dataRows.map(row => row.join(','))].join('\n') + '\n';
+    fs.writeFileSync(textFile, newContent, 'utf8');
+
+    // Return object (with boolean values, not strings)
+    return {
+        driverID,
+        driverName,
+        date,
+        startTime,
+        endTime,
+        shiftDuration,
+        idleTime,
+        activeTime,
+        metQuota: metQuotaBool,
+        hasBonus
+    };
 }
 
 // ============================================================
