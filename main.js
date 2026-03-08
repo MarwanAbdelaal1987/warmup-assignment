@@ -63,7 +63,7 @@ function isEidPeriod(dateStr) {
 
 // 7. Get daily quota in seconds (used in metQuota and required hours)
 function getDailyQuotaSeconds(dateStr) {
-    return isEidPeriod(dateStr) ? 6 * 3600 : (8 * 3600 + 24 * 60); /
+    return isEidPeriod(dateStr) ? 6 * 3600 : (8 * 3600 + 24 * 60); 
 }
 
 // Day name → number map (used later in function 9)
@@ -102,7 +102,31 @@ function getShiftDuration(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getIdleTime(startTime, endTime) {
-    // TODO: Implement this function
+    let startSec = timeToSeconds(startTime);
+    let endSec = timeToSeconds(endTime);
+
+    // Handle if shift crosses midnight
+    if (endSec < startSec) {
+        endSec += 24 * 3600;
+    }
+
+    const deliveryStart = 8 * 3600;  // 8:00 AM
+    const deliveryEnd = 22 * 3600;   // 10:00 PM
+
+    let idleSec = 0;
+
+    // Idle before 8 AM
+    if (startSec < deliveryStart) {
+        idleSec += deliveryStart - startSec;
+    }
+
+    // Idle after 10 PM
+    if (endSec > deliveryEnd) {
+        idleSec += endSec - deliveryEnd;
+    }
+
+    // If entire shift is before 8 AM or after 10 PM, idle is full duration
+    return secondsToDuration(idleSec);
 }
 
 // ============================================================
