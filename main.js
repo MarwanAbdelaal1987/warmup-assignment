@@ -243,7 +243,30 @@ function addShiftRecord(textFile, shiftObj) {
 // Returns: nothing (void)
 // ============================================================
 function setBonus(textFile, driverID, date, newValue) {
-    // TODO: Implement this function
+    // Read file content
+    let content = fs.readFileSync(textFile, 'utf8').trim();
+    let lines = content.split('\n').filter(line => line.trim() !== '');
+
+    // If no content or only header, do nothing
+    if (lines.length <= 1) return;
+
+    // Find and update the matching line
+    let updated = false;
+    for (let i = 1; i < lines.length; i++) { // Skip header
+        let row = lines[i].split(',');
+        if (row[0] === driverID && row[2] === date) {
+            row[9] = newValue ? 'true' : 'false'; // Last column: HasBonus
+            lines[i] = row.join(',');
+            updated = true;
+            break; // Assume only one match
+        }
+    }
+
+    // If updated, write back
+    if (updated) {
+        const newContent = lines.join('\n') + '\n';
+        fs.writeFileSync(textFile, newContent, 'utf8');
+    }
 }
 
 // ============================================================
