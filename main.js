@@ -277,7 +277,35 @@ function setBonus(textFile, driverID, date, newValue) {
 // Returns: number (-1 if driverID not found)
 // ============================================================
 function countBonusPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+    // Read file content
+    let content = fs.readFileSync(textFile, 'utf8').trim();
+    let lines = content.split('\n').filter(line => line.trim() !== '');
+
+    // If only header or empty, return -1 (no driver)
+    if (lines.length <= 1) return -1;
+
+    // Normalize month to "mm" format (e.g., "4" → "04")
+    let monthStr = month.toString().padStart(2, '0');
+
+    // Check if driver exists at all
+    const driverExists = lines.slice(1).some(line => line.split(',')[0] === driverID);
+    if (!driverExists) return -1;
+
+    // Count bonuses: filter rows for driver, month, hasBonus 'true'
+    let bonusCount = 0;
+    for (let i = 1; i < lines.length; i++) {
+        let row = lines[i].split(',');
+        let rowDriverID = row[0];
+        let rowDate = row[2]; // yyyy-mm-dd
+        let rowMonth = rowDate.split('-')[1]; // mm
+        let rowHasBonus = row[9]; // 'true' or 'false'
+
+        if (rowDriverID === driverID && rowMonth === monthStr && rowHasBonus === 'true') {
+            bonusCount++;
+        }
+    }
+
+    return bonusCount;
 }
 
 // ============================================================
@@ -288,7 +316,32 @@ function countBonusPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getTotalActiveHoursPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+    // Read file content
+    let content = fs.readFileSync(textFile, 'utf8').trim();
+    let lines = content.split('\n').filter(line => line.trim() !== '');
+
+    // If only header or empty, return "000:00:00" (or "0:00:00" but format as hhh)
+    if (lines.length <= 1) return "000:00:00";
+
+    // Normalize month to "mm" (month is number, e.g., 4 → "04")
+    let monthStr = month.toString().padStart(2, '0');
+
+    // Sum active seconds for matching rows
+    let totalActiveSec = 0;
+    for (let i = 1; i < lines.length; i++) {
+        let row = lines[i].split(',');
+        let rowDriverID = row[0];
+        let rowDate = row[2]; // yyyy-mm-dd
+        let rowMonth = rowDate.split('-')[1]; // mm
+        let rowActiveTime = row[7]; // h:mm:ss
+
+        if (rowDriverID === driverID && rowMonth === monthStr) {
+            totalActiveSec += durationToSeconds(rowActiveTime);
+        }
+    }
+
+    // Format as hhh:mm:ss (use secondsToTotalHours for potential 3-digit hours)
+    return secondsToTotalHours(totalActiveSec);
 }
 
 // ============================================================
@@ -301,7 +354,53 @@ function getTotalActiveHoursPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, month) {
-    // TODO: Implement this function
+    // Read shifts file
+    let shiftsContent = fs.readFileSync(textFile, 'utf8').trim();
+    let shiftsLines = shiftsContent.split('\n').filter(line => line.trim() !== '');
+
+    // Read rate file
+    let ratesContent = fs.readFileSync(rateFile, 'utf8').trim();
+    let ratesLines = ratesContent.split('\n').filter(line => line.trim() !== '');
+
+    // Find driver's dayOff from rateFile (no header, each line is data)
+    let dayOff = null;
+    for (let line of ratesLines) {
+        let row = line.split(',');
+        if (row[0] === driverID) {
+            dayOff = row[1]; // e.g., 'Friday'
+            break;
+        }
+    }
+    if (!dayOff) return "000:00:00"; // No driver → 0 (safe default)
+
+    // Get dayOff number (0=Sun, etc.)
+    const dayOffNum = dayNameToNumber[dayOff] || -1; // Invalid → no skip
+
+    // Normalize month to "mm" (month is number)
+    let monthStr = month.toString().padStart(2, '0');
+
+    // Sum quota seconds for shifts in month, skipping day off
+    let totalRequiredSec = 0;
+    for (let i = 1; i < shiftsLines.length; i++) { // Skip header
+        let row = shiftsLines[i].split(',');
+        let rowDriverID = row[0];
+        let rowDate = row[2]; // yyyy-mm-dd
+        let rowMonth = rowDate.split('-')[1];
+
+        if (rowDriverID === driverID && rowMonth === monthStr) {
+            const dayNum = getDayOfWeek(rowDate);
+            if (dayNum !== dayOffNum) { // Not day off
+                totalRequiredSec += getDailyQuotaSeconds(rowDate);
+            }
+        }
+    }
+
+    // Subtract 2 hours per bonus
+    totalRequiredSec -= bonusCount * 2 * 3600;
+    if (totalRequiredSec < 0) totalRequiredSec = 0;
+
+    // Format as hhh:mm:ss
+    return secondsToTotalHours(totalRequiredSec);
 }
 
 // ============================================================
@@ -313,7 +412,61 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 // Returns: integer (net pay)
 // ============================================================
 function getNetPay(driverID, actualHours, requiredHours, rateFile) {
-    // TODO: Implement this function
+    // Parse hours to seconds
+    const actualSec = durationToSeconds(actualHours);
+    const requiredSec = durationToSeconds(requiredHours);
+
+    // If actual >= required, no deduction
+    if (actualSec >= requiredSec) {
+        // Still need basePay, so read file
+    } else {
+        // Proceed to calculate deduction
+    }
+
+    // Read rate file (no header)
+    let ratesContent = fs.readFileSync(rateFile, 'utf8').trim();
+    let ratesLines = ratesContent.split('\n').filter(line => line.trim() !== '');
+
+    // Find driver's basePay and tier
+    let basePay = 0;
+    let tier = 0;
+    for (let line of ratesLines) {
+        let row = line.split(',');
+        if (row[0] === driverID) {
+            basePay = parseInt(row[2], 10); // BasePay
+            tier = parseInt(row[3], 10);   // Tier
+            break;
+        }
+    }
+    if (basePay === 0) return 0; // No driver → 0 (safe)
+
+    // If actual >= required, return basePay
+    if (actualSec >= requiredSec) {
+        return basePay;
+    }
+
+    // Calculate missing seconds
+    const missingSec = requiredSec - actualSec;
+
+    // Tier allowances (in hours * 3600 sec)
+    const allowances = [0, 50, 20, 10, 3]; // Index 0 unused, 1-4 for tiers
+    const allowedSec = (allowances[tier] || 0) * 3600;
+
+    // Billable missing hours (full hours only)
+    let billableMissingSec = Math.max(0, missingSec - allowedSec);
+    const billableHours = Math.floor(billableMissingSec / 3600); // Ignore partial hours
+
+    // Deduction rate
+    const deductionRatePerHour = Math.floor(basePay / 185);
+
+    // Total deduction
+    const salaryDeduction = billableHours * deductionRatePerHour;
+
+    // Net pay
+    let netPay = basePay - salaryDeduction;
+    if (netPay < 0) netPay = 0; // Prevent negative
+
+    return netPay;
 }
 
 module.exports = {
