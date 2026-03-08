@@ -154,7 +154,9 @@ function getActiveTime(shiftDuration, idleTime) {
 // Returns: boolean
 // ============================================================
 function metQuota(date, activeTime) {
-    // TODO: Implement this function
+    const quotaSec = getDailyQuotaSeconds(date);
+    const activeSec = durationToSeconds(activeTime);
+    return activeSec >= quotaSec;
 }
 
 // ============================================================
